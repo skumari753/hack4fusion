@@ -33,7 +33,7 @@ def create_dataset(data, look_back=1):
         for i in range(len(dataset)-look_back):
             a = dataset[i:(i+look_back), :-1]
             dataX.append(a)
-            y = dataset[i + look_back - 1, -4]
+            y = dataset[i + look_back - 1, -1]
             if math.isnan(y):
                 dataY.append(0.0)
             elif y >=  thres:
