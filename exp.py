@@ -24,31 +24,6 @@ valid = test.index.values
 df_clean = df_clean[df_clean.shot.apply(lambda x: x in valid)]
 print(len(df_clean))
 
-thres = 0.5
-
-def create_dataset(data, look_back=1):
-    dataX, dataY = [], []
-    for dataset in data:
-        dataset = np.array(dataset)
-        for i in range(len(dataset)-look_back):
-            a = dataset[i:(i+look_back), :-1]
-            dataX.append(a)
-            y = dataset[i + look_back - 1, -1]
-            if math.isnan(y):
-                dataY.append(False)
-            elif y >=  thres:
-                dataY.append(False)
-            else:
-                dataY.append(True)
-    return np.array(dataX), np.array(dataY)
-
-def prep_df(df):
-    df_list = []
-    for s in df['shot'].unique():
-        df_list.append(df[df.shot == s])
-    return df_list
-
-# convert an array of values into a dataset matrix
 thres = 0.25
 
 def create_dataset(data, look_back=1):
@@ -58,28 +33,45 @@ def create_dataset(data, look_back=1):
         for i in range(len(dataset)-look_back):
             a = dataset[i:(i+look_back), :-1]
             dataX.append(a)
-            y = dataset[i + look_back - 1, -1]
+            y = dataset[i + look_back - 1, -4]
             if math.isnan(y):
-                dataY.append(False)
+                dataY.append(0.0)
             elif y >=  thres:
-                dataY.append(False)
+                dataY.append(0.0)
             else:
-                dataY.append(True)
+                dataY.append(1.0)
     return np.array(dataX), np.array(dataY)
 
+def prep_df(df):
+    df_list = []
+    for s in df['shot'].unique():
+        df_list.append(df[df.shot == s])
+    return df_list
+
+# fix random seed for reproducibility
 # fix random seed for reproducibility
 np.random.seed(7)
-df_norm = df_clean - df_clean.mean()/ df_clean.std()
+
 
 # split into train and test sets
-train_size = int(len(df_norm) * 0.67)
-test_size = len(df_norm) - train_size
-train, test = pd.DataFrame(df_norm[0:train_size]), pd.DataFrame(df_norm[train_size:len(df_norm)])
+train_size = int(len(df_clean) * 0.67)
+test_size = len(df_clean) - train_size
+train, test = pd.DataFrame(df_clean[0:train_size]), pd.DataFrame(df_clean[train_size:len(df_clean)])
+t_time = train['time_until_disrupt']
+test_time = test['time_until_disrupt']
+train = train.drop(['time_until_disrupt'], axis=1)
+test = test.drop(['time_until_disrupt'], axis=1)
+m, std = train.mean(), train.std()
+train = (train - m)/std
+test = (test - m)/std
+train['time_until_disrupt'] = t_time
+test['time_until_disrupt'] = test_time
 train = prep_df(train)
 test = prep_df(test)
 
+
 # reshape into X=t and Y=t+1
-look_back = 3
+look_back = 10
 trainX, trainY = create_dataset(train, look_back)
 testX, testY = create_dataset(test, look_back)
 
@@ -89,37 +81,18 @@ testX = np.reshape(testX, (testX.shape[0], testX.shape[1], testX.shape[2]))
 
 # create and fit the LSTM network
 model = Sequential()
-model.add(LSTM(4, input_shape=(look_back, 27), return_sequences=True))
-model.add(LSTM(4, input_shape=(look_back, 27)))
-model.add(Dense(1))
-model.compile(loss='mean_squared_error', optimizer='adam')
-model.fit(trainX, trainY, epochs=100, batch_size=100, verbose=2)
+model.add(LSTM(15, input_shape=(look_back, 27), return_sequences=True))
+model.add(LSTM(10))
+model.add(Dense(10, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+model.compile(loss='binary_crossentropy', optimizer= keras.optimizers.Adam(lr=0.0001))
+model.fit(trainX, trainY, epochs=50, batch_size=100, verbose=2)
 
 # make predictions
 trainPredict = model.predict(trainX)
 testPredict = model.predict(testX)
 
-# invert predictions
-trainPredict = scaler.inverse_transform(trainPredict)
-trainY = scaler.inverse_transform([trainY])
-testPredict = scaler.inverse_transform(testPredict)
-testY = scaler.inverse_transform([testY])
-
-# calculate root mean squared error
-trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
+trainScore = math.sqrt(mean_squared_error(trainY, trainPredict[:,0]))
 print('Train Score: %.2f RMSE' % (trainScore))
-testScore = math.sqrt(mean_squared_error(testY[0], testPredict[:,0]))
+testScore = math.sqrt(mean_squared_error(testY, testPredict[:,0]))
 print('Test Score: %.2f RMSE' % (testScore))
-# shift train predictions for plotting
-trainPredictPlot = numpy.empty_like(dataset)
-trainPredictPlot[:, :] = numpy.nan
-trainPredictPlot[look_back:len(trainPredict)+look_back, :] = trainPredict
-# shift test predictions for plotting
-testPredictPlot = numpy.empty_like(dataset)
-testPredictPlot[:, :] = numpy.nan
-testPredictPlot[len(trainPredict)+(look_back*2)+1:len(dataset)-1, :] = testPredict
-# plot baseline and predictions
-plt.plot(scaler.inverse_transform(dataset))
-plt.plot(trainPredictPlot)
-plt.plot(testPredictPlot)
-plt.show()
