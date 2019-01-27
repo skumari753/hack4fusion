@@ -24,7 +24,7 @@ valid = test.index.values
 df_clean = df_clean[df_clean.shot.apply(lambda x: x in valid)]
 print(len(df_clean))
 
-thres = 0.25
+thres = 0.10
 
 def create_dataset(data, look_back=1):
     dataX, dataY = [], []
