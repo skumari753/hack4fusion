@@ -9,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 import tensorflow as tf
 import keras
+from keras import backend as K
 
 
 df = pd.read_csv('./CMod_HackForFusion_v2.csv')
@@ -96,3 +97,14 @@ trainScore = math.sqrt(mean_squared_error(trainY, trainPredict[:,0]))
 print('Train Score: %.2f RMSE' % (trainScore))
 testScore = math.sqrt(mean_squared_error(testY, testPredict[:,0]))
 print('Test Score: %.2f RMSE' % (testScore))
+
+import sklearn
+train_pred = [0.0 if x <= 0.5 else 1.0 for x in trainPredict[:,0]]
+test_pred = [0.0 if x <= 0.5 else 1.0 for x in testPredict[:,0]]
+print(sklearn.metrics.accuracy_score(trainY, train_pred))
+print(sklearn.metrics.accuracy_score(testY, test_pred))
+
+get_2nd_layer_output = K.function([model.layers[0].input],
+                                  [model.layers[1].output])
+train_features = get_2nd_layer_output([trainX])[0]
+test_features = get_2nd_layer_output([testX])[0]
