@@ -28,7 +28,7 @@ print(len(df_clean))
 thres = 0.10
 
 def create_dataset(data, look_back=1):
-    dataX, dataY = [], []
+    dataX, dataY, regressY = [], [], []
     for dataset in data:
         dataset = np.array(dataset)
         for i in range(len(dataset)-look_back):
@@ -41,7 +41,8 @@ def create_dataset(data, look_back=1):
                 dataY.append(0.0)
             else:
                 dataY.append(1.0)
-    return np.array(dataX), np.array(dataY)
+            regressY.append(y)
+    return np.array(dataX), np.array(dataY), np.array(regressY)
 
 def prep_df(df):
     df_list = []
@@ -73,8 +74,8 @@ test = prep_df(test)
 
 # reshape into X=t and Y=t+1
 look_back = 10
-trainX, trainY = create_dataset(train, look_back)
-testX, testY = create_dataset(test, look_back)
+trainX, trainY, trainRegressY = create_dataset(train, look_back)
+testX, testY, testRegressY = create_dataset(test, look_back)
 
 # reshape input to be [samples, time steps, features]
 trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], trainX.shape[2]))
